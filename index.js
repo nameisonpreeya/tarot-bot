@@ -7,12 +7,12 @@ const app = express();
 const port = 3000;
 
 const config = {
-  channelAccessToken: process.env.LINE_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET,
+  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.CHANNEL_SECRET,
 };
 
 const client = new line.messagingApi.MessagingApiClient({
-  channelAccessToken: process.env.LINE_ACCESS_TOKEN
+  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN
 });
 
 // เชื่อมต่อฐานข้อมูล MySQL
@@ -20,7 +20,8 @@ const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT || 3306
 });
 
 app.post('/webhook', line.middleware(config), (req, res) => {
@@ -28,7 +29,7 @@ app.post('/webhook', line.middleware(config), (req, res) => {
     .all(req.body.events.map(handleEvent))
     .then((result) => res.json(result))
     .catch((err) => {
-      console.error(err);
+      console.error("Webhook Error:", err);
       res.status(500).end();
     });
 });
@@ -56,19 +57,19 @@ async function handleEvent(event) {
       // 3. เช็คเงื่อนไข: ถ้าพิมพ์ "ดวงประจำวัน", "รายวัน", หรือ "ดวงวันนี้" ให้เปิดไพ่ใบเดียว
       else if (userMessage === "ดวงประจำวัน" || userMessage.includes("รายวัน") || userMessage === "ดวงวันนี้") {
           const [rows] = await pool.query('SELECT * FROM cards ORDER BY RAND() LIMIT 1');
-          if (rows.length === 0) throw new Error('ไม่พบข้อมูลไพ่');
+          if (rows.length === 0) throw new Error('ไม่พบข้อมูลไพ่ในฐานข้อมูล');
           
           const card = rows[0];
           const isReversed = Math.random() < 0.3;
           const orientation = isReversed ? "กลับหัว 🔄" : "หัวตั้ง ✨";
           const meaning = isReversed ? card.reversed_meaning : card.meaning;
 
-          replyText = `☀️ดวงประจำวันของคุณ\n\n🎴 ${card.card_name} (${orientation})\n\n🔮 คำทำนาย:\n${meaning}`;
+          replyText = `☀️ ดวงประจำวันของคุณ\n\n🎴 ${card.card_name} (${orientation})\n\n🔮 คำทำนาย:\n${meaning}`;
       } 
       // 4. ถ้าเป็นคำถามอื่นๆ ให้เปิดไพ่ 3 ใบ (อดีต - ปัจจุบัน - อนาคต)
       else {
           const [rows] = await pool.query('SELECT * FROM cards ORDER BY RAND() LIMIT 3');
-          if (rows.length < 3) throw new Error('ข้อมูลไพ่ไม่พอ');
+          if (rows.length < 3) throw new Error('ข้อมูลไพ่ในฐานข้อมูลไม่พอ (ต้องการอย่างน้อย 3 ใบ)');
 
           const positions = ["อดีต (Past)", "ปัจจุบัน (Present)", "อนาคต (Future)"];
           replyText = `🎴 คำถาม: "${userMessage}"\n\n🔮 ดวงชะตาแบบ 3 ใบ (อดีต - ปัจจุบัน - อนาคต):`;
@@ -78,24 +79,28 @@ async function handleEvent(event) {
             const orientation = isReversed ? "กลับหัว 🔄" : "หัวตั้ง ✨";
             const meaning = isReversed ? card.reversed_meaning : card.meaning;
             
-            replyText += `\n\n-------------------\n👉${positions[index]}\n🎴 ไพ่: ${card.card_name} (${orientation})\n📝 คำทำนาย: ${meaning}`;
+            replyText += `\n\n-------------------\n👉 ${positions[index]}\n🎴 ไพ่: ${card.card_name} (${orientation})\n📝 คำทำนาย: ${meaning}`;
           });
       }
 
       // 5. ส่งผลลัพธ์กลับไปที่ LINE
-      return client.replyMessage({
+      return await client.replyMessage({
         replyToken: event.replyToken,
         messages: [{ type: 'text', text: replyText }]
       });
 
   } catch (error) {
-      // 🔍 เพิ่มบรรทัดนี้ เพื่อให้พ่น Error จริงๆ ออกมาดูใน Logs ของ Render
-      console.error("🔴 ERROR DETAIL:", error.message, error.stack);
+      console.error("🔴 ERROR DETAIL:", error);
 
-      return client.replyMessage({
-        replyToken: event.replyToken,
-        messages: [{ type: 'text', text: "ขออภัยค่ะ พลังงานแม่หมอขัดข้องชั่วคราว" }]
-      });
+      // ส่งข้อความแจ้งเตือนเมื่อเกิดข้อผิดพลาด
+      try {
+          return await client.replyMessage({
+            replyToken: event.replyToken,
+            messages: [{ type: 'text', text: "ขออภัยค่ะ พลังงานแม่หมอขัดข้องชั่วคราว 🥲" }]
+          });
+      } catch (replyErr) {
+          console.error("🔴 Reply Error:", replyErr);
+      }
   }
 }
 
