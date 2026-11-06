@@ -15,7 +15,16 @@ const client = new line.messagingApi.MessagingApiClient({
 });
 
 const mysql = require('mysql2/promise');
-const pool = mysql.createPool(process.env.DATABASE_URL);
+const mysql = require('mysql2/promise');
+
+// เช็กว่ามี DATABASE_URL ไหม ถ้าไม่มีให้ดึงจากตัวแปรแยกแทน
+const pool = mysql.createPool(process.env.DATABASE_URL || {
+    host: process.env.DB_HOST || process.env.MYSQLHOST,
+    user: process.env.DB_USER || process.env.MYSQLUSER,
+    password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD,
+    database: process.env.DB_NAME || process.env.MYSQLDATABASE,
+    port: process.env.DB_PORT || process.env.MYSQLPORT
+});
 
 // ฟังก์ชันสร้างตารางและใส่ข้อมูลอัตโนมัติ
 async function initDatabase() {
