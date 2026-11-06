@@ -1,28 +1,78 @@
 require('dotenv').config();
 const express = require('express');
 const line = require('@line/bot-sdk');
-const mysql = require('mysql2/promise');
 
 const app = express();
 const port = 3000;
 
 const config = {
-  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.CHANNEL_SECRET,
+  channelAccessToken: process.env.LINE_ACCESS_TOKEN,
+  channelSecret: process.env.LINE_CHANNEL_SECRET,
 };
 
 const client = new line.messagingApi.MessagingApiClient({
-  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN
+  channelAccessToken: process.env.LINE_ACCESS_TOKEN
 });
 
-// เชื่อมต่อฐานข้อมูล MySQL
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT || 3306
-});
+// 📚 ข้อมูลไพ่ทาโรต์ฝังในโค้ด (ไม่ต้องง้อฐานข้อมูล MySQL แล้วจ้า)
+const tarotCards = [
+  {
+    card_name: "The Fool (คนโง่ / การเริ่มต้นใหม่)",
+    meaning: "การเริ่มต้นเดินทางครั้งใหม่ การเสี่ยงโชค การทำตามสัญชาตญาณ เปิดรับโอกาสใหม่ๆ โดยไม่กลัวความล้มเหลว",
+    reversed_meaning: "ความประมาท การตัดสินใจอย่างไร้เหตุผล การพลาดพลั้งเพราะความไม่รอบคอบ"
+  },
+  {
+    card_name: "The Magician (นักกล่อม / ผู้สร้าง)",
+    meaning: "มีความสามารถรอบด้าน การริเริ่มสร้างสรรค์ การใช้ทักษะแก้ปัญหาเฉพาะหน้า ทุกอย่างอยู่ในมือคุณแล้ว",
+    reversed_meaning: "ความสามารถที่ซ่อนเร้น การใช้เล่ห์เหลี่ยม หรือความรู้สึกว่าพลังที่มีกำลังถดถอย"
+  },
+  {
+    card_name: "The High Priestess (นักบวชหญิง)",
+    meaning: "สัญชาตญาณ ลางสังหรณ์ ความลึกลับ การเก็บงำความรู้สึก การใช้ความเงียบสงบและการไตร่ตรอง",
+    reversed_meaning: "ความลับที่ปิดบังไม่ได้ สัญชาตญาณผิดพลาด หรือการใช้อารมณ์ความรู้สึกเหนือเหตุผล"
+  },
+  {
+    card_name: "The Empress (จักรพรรดินี)",
+    meaning: "ความอุดมสมบูรณ์ ความรัก ความอบอุ่น การดูแลเอาใจใส่ ความเจริญงอกงาม และโชคลาภ",
+    reversed_meaning: "ความพึ่งพาผู้อื่นมากเกินไป การขาดความรัก ความอุดมสมบูรณ์ที่ลดลง หรือความหึงหวง"
+  },
+  {
+    card_name: "The Emperor (จักรพรรดิ)",
+    meaning: "อำนาจ ความเป็นผู้นำ ระเบียบวินัย ความมั่นคง ความรับผิดชอบ และการจัดการที่ดี",
+    reversed_meaning: "ความเผด็จการ ความดื้อรั้น การควบคุมทุกอย่างมากเกินไปจนคนรอบข้างอึดอัด"
+  },
+  {
+    card_name: "The Lovers (คู่รัก)",
+    meaning: "ความรัก ความสัมพันธ์ที่ลงตัว การตัดสินใจเลือกครั้งสำคัญ ความสามัคคี และมิตรภาพที่ดี",
+    reversed_meaning: "ความขัดแย้งในความสัมพันธ์ การตัดสินใจผิดพลาด หรือการลังเลไม่แน่ใจ"
+  },
+  {
+    card_name: "The Wheel of Fortune (กงล้อแห่งโชคชะตา)",
+    meaning: "โชคลาภ การเปลี่ยนแปลงครั้งใหญ่ โอกาสดีๆ ที่กำลังเข้ามา วัฏจักรชีวิตที่หมุนไปในทางที่ดีขึ้น",
+    reversed_meaning: "ช่วงเวลาโชคร้าย ความซวยฉับพลัน หรือการไม่ยอมรับความเปลี่ยนแปลงของชีวิต"
+  },
+  {
+    card_name: "The Star (ดวงดาว)",
+    meaning: "ความหวัง ศรัทธา แรงบันดาลใจ การเยียวยาจิตใจ อนาคตที่สดใส และความสุขสงบในจิตใจ",
+    reversed_meaning: "ความสิ้นหวัง ความท้อแท้ สูญเสียความเชื่อมั่นในตัวเอง"
+  },
+  {
+    card_name: "The Sun (ดวงอาทิตย์)",
+    meaning: "ความสุข ความสำเร็จ ความสดใส พลังงานบวก ความจริงที่ปรากฏ และความโชคดีขั้นสุด",
+    reversed_meaning: "ความสุขที่ล่าช้า ความอึดอัดใจเล็กน้อย หรือปัญหาที่ยังเคลียร์ไม่หมด"
+  },
+  {
+    card_name: "The World (โลก)",
+    meaning: "ความสำเร็จสมบูรณ์แบบ การเดินทางไกล การจบสิ้นวัฏจักรหนึ่งเพื่อเริ่มต้นสิ่งที่ดีกว่าเดิม",
+    reversed_meaning: "ความล่าช้าในเป้าหมาย ความรู้สึกยังไม่สมบูรณ์ หรือติดขัดในขั้นตอนสุดท้าย"
+  }
+];
+
+// ฟังก์ชันสุ่มไพ่จาก Array
+function getRandomCards(count) {
+  const shuffled = [...tarotCards].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+}
 
 app.post('/webhook', line.middleware(config), (req, res) => {
   Promise
@@ -56,10 +106,8 @@ async function handleEvent(event) {
       } 
       // 3. เช็คเงื่อนไข: ถ้าพิมพ์ "ดวงประจำวัน", "รายวัน", หรือ "ดวงวันนี้" ให้เปิดไพ่ใบเดียว
       else if (userMessage === "ดวงประจำวัน" || userMessage.includes("รายวัน") || userMessage === "ดวงวันนี้") {
-          const [rows] = await pool.query('SELECT * FROM cards ORDER BY RAND() LIMIT 1');
-          if (rows.length === 0) throw new Error('ไม่พบข้อมูลไพ่ในฐานข้อมูล');
-          
-          const card = rows[0];
+          const cards = getRandomCards(1);
+          const card = cards[0];
           const isReversed = Math.random() < 0.3;
           const orientation = isReversed ? "กลับหัว 🔄" : "หัวตั้ง ✨";
           const meaning = isReversed ? card.reversed_meaning : card.meaning;
@@ -68,13 +116,11 @@ async function handleEvent(event) {
       } 
       // 4. ถ้าเป็นคำถามอื่นๆ ให้เปิดไพ่ 3 ใบ (อดีต - ปัจจุบัน - อนาคต)
       else {
-          const [rows] = await pool.query('SELECT * FROM cards ORDER BY RAND() LIMIT 3');
-          if (rows.length < 3) throw new Error('ข้อมูลไพ่ในฐานข้อมูลไม่พอ (ต้องการอย่างน้อย 3 ใบ)');
-
+          const cards = getRandomCards(3);
           const positions = ["อดีต (Past)", "ปัจจุบัน (Present)", "อนาคต (Future)"];
           replyText = `🎴 คำถาม: "${userMessage}"\n\n🔮 ดวงชะตาแบบ 3 ใบ (อดีต - ปัจจุบัน - อนาคต):`;
 
-          rows.forEach((card, index) => {
+          cards.forEach((card, index) => {
             const isReversed = Math.random() < 0.3;
             const orientation = isReversed ? "กลับหัว 🔄" : "หัวตั้ง ✨";
             const meaning = isReversed ? card.reversed_meaning : card.meaning;
@@ -92,7 +138,6 @@ async function handleEvent(event) {
   } catch (error) {
       console.error("🔴 ERROR DETAIL:", error);
 
-      // ส่งข้อความแจ้งเตือนเมื่อเกิดข้อผิดพลาด
       try {
           return await client.replyMessage({
             replyToken: event.replyToken,
@@ -105,5 +150,5 @@ async function handleEvent(event) {
 }
 
 app.listen(port, () => {
-  console.log(`Tarot Bot (Full Features) รันอยู่ที่พอร์ต ${port}`);
+  console.log(`Tarot Bot (No DB Version) รันอยู่ที่พอร์ต ${port}`);
 });
