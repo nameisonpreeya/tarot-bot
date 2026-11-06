@@ -3,6 +3,7 @@ const express = require('express');
 const line = require('@line/bot-sdk');
 const mysql = require('mysql2/promise');
 
+
 const app = express();
 const port = 3000;
 
@@ -16,12 +17,8 @@ const client = new line.messagingApi.MessagingApiClient({
 });
 
 // เชื่อมต่อฐานข้อมูล MySQL
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME
-});
+// ใช้ DATABASE_URL ก้อนเดียวจบจาก Railway ได้เลย
+const pool = mysql.createPool(process.env.DATABASE_URL);
 
 app.post('/webhook', line.middleware(config), (req, res) => {
   Promise
