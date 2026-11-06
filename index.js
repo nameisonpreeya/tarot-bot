@@ -89,7 +89,9 @@ async function handleEvent(event) {
       });
 
   } catch (error) {
-      console.error("Database Error:", error);
+      // 🔍 เพิ่มบรรทัดนี้ เพื่อให้พ่น Error จริงๆ ออกมาดูใน Logs ของ Render
+      console.error("🔴 ERROR DETAIL:", error.message, error.stack);
+
       return client.replyMessage({
         replyToken: event.replyToken,
         messages: [{ type: 'text', text: "ขออภัยค่ะ พลังงานแม่หมอขัดข้องชั่วคราว" }]
