@@ -89,11 +89,13 @@ async function handleEvent(event) {
         messages: [{ type: 'text', text: replyText }]
       });
 
-  } catch (error) {
-      console.error("Database Error:", error);
+    } catch (error) {
+      // เพิ่มบรรทัดนี้เพื่อให้พิมพ์ Error แบบเต็มๆ ออกมาใน Logs ของ Render
+      console.error("Database Error Full Details:", error); 
+      
       return client.replyMessage({
         replyToken: event.replyToken,
-        messages: [{ type: 'text', text: "ขออภัยค่ะ พลังงานแม่หมอขัดข้องชั่วคราว" }]
+        messages: [{ type: 'text', text: `ขออภัยค่ะ พลังงานแม่หมอขัดข้องชั่วคราว (Error: ${error.message})` }]
       });
   }
 }
