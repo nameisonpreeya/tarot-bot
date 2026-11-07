@@ -20,7 +20,8 @@ const pool = new Pool({
   connectionString: process.env.SUPERBASE_SQL,
   ssl: {
     rejectUnauthorized: false // จำเป็นสำหรับเชื่อมต่อ Supabase บน Cloud
-  }
+  },
+  family: 4
 });
 
 app.post('/webhook', line.middleware(config), (req, res) => {
