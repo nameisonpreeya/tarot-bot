@@ -17,7 +17,7 @@ const client = new line.messagingApi.MessagingApiClient({
 
 // เชื่อมต่อฐานข้อมูล PostgreSQL บน Supabase
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.SUPERBASE_SQL,
   ssl: {
     rejectUnauthorized: false // จำเป็นสำหรับเชื่อมต่อ Supabase บน Cloud
   }
