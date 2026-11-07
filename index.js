@@ -24,6 +24,8 @@ const pool = new Pool({
   family: 4
 });
 
+app.get('/ping', (req, res) => res.status(200).send('Wake up!'));
+
 app.post('/webhook', line.middleware(config), (req, res) => {
   Promise
     .all(req.body.events.map(handleEvent))
