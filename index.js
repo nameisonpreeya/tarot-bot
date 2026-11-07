@@ -1,10 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const line = require('@line/bot-sdk');
-const { Pool } = require('pg'); // เปลี่ยนมาใช้ pg สำหรับ PostgreSQL
+const { Pool } = require('pg');
 
 const app = express();
-const port = process.env.PORT || 3000;
 
 const config = {
   channelAccessToken: process.env.LINE_ACCESS_TOKEN,
@@ -17,11 +16,14 @@ const client = new line.messagingApi.MessagingApiClient({
 
 // เชื่อมต่อฐานข้อมูล PostgreSQL บน Supabase
 const pool = new Pool({
-  connectionString: process.env.SUPERBASE_SQL,
+  connectionString: process.env.SUPERBASE_SQL, // ตรวจสอบชื่อตัวแปรให้ตรงกับใน Netlify Environment ด้วยนะคะ
   ssl: {
-    rejectUnauthorized: false // จำเป็นสำหรับเชื่อมต่อ Supabase บน Cloud
+    rejectUnauthorized: false
   },
-  family: 4
+  // ปรับลด Max Connection สำหรับ Serverless ป้องกันปัญหา Connection เต็ม
+  max: 2, 
+  idleTimeoutMillis: 3000,
+  connectionTimeoutMillis: 2000,
 });
 
 app.post('/webhook', line.middleware(config), (req, res) => {
@@ -56,7 +58,6 @@ async function handleEvent(event) {
       } 
       // 3. เช็คเงื่อนไข: ถ้าพิมพ์ "ดวงประจำวัน", "รายวัน", หรือ "ดวงวันนี้" ให้เปิดไพ่ใบเดียว
       else if (userMessage === "ดวงประจำวัน" || userMessage.includes("รายวัน") || userMessage === "ดวงวันนี้") {
-          // ใช้ ORDER BY RANDOM() สำหรับ PostgreSQL
           const result = await pool.query('SELECT * FROM cards ORDER BY RANDOM() LIMIT 1');
           if (result.rows.length === 0) throw new Error('ไม่พบข้อมูลไพ่');
           
@@ -67,7 +68,7 @@ async function handleEvent(event) {
 
           replyText = `☀️ดวงประจำวันของคุณ\n\n🎴 ${card.card_name} (${orientation})\n\n🔮 คำทำนาย:\n${meaning}`;
       } 
-      // 4. ถ้าเป็นคำถามอื่นๆ ให้เปิดไพ่ 3 ใบ (อดีต - ปัจจุบัน - อนาคต)
+      // 4. ถ้าเป็นคำถามอื่นๆ ให้เปิดไพ่ 3 ใบ
       else {
           const result = await pool.query('SELECT * FROM cards ORDER BY RANDOM() LIMIT 3');
           if (result.rows.length < 3) throw new Error('ข้อมูลไพ่ไม่พอ');
@@ -91,7 +92,6 @@ async function handleEvent(event) {
       });
 
     } catch (error) {
-      // เพิ่มบรรทัดนี้เพื่อให้พิมพ์ Error แบบเต็มๆ ออกมาใน Logs ของ Render
       console.error("Database Error Full Details:", error); 
       
       return client.replyMessage({
@@ -101,6 +101,5 @@ async function handleEvent(event) {
   }
 }
 
-app.listen(port, () => {
-  console.log(`Tarot Bot (Full Features) รันอยู่ที่พอร์ต ${port}`);
-});
+// ✅ เพิ่มบรรทัดนี้ลงไปแทนที่ด้านล่างสุด เพื่อ Export ไปให้ฟังก์ชันของ Netlify ใช้งาน
+module.exports = app;
