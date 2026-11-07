@@ -16,7 +16,7 @@
 - Backend: Node.js, Express.js
 - Database: PostgreSQL
 - Messaging API: `@line/bot-sdk`
-- Hosting / Deployment: Railway
+- Hosting / Deployment: Render
 
 ---
 
